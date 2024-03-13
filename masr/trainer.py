@@ -188,6 +188,7 @@ class MASRTrainer(object):
             else:
                 raise Exception(f'不支持学习率衰减方法：{scheduler}')
 
+    # 加载预训练模型
     def __load_pretrained(self, pretrained_model):
         # 加载预训练模型
         if pretrained_model is not None:

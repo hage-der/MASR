@@ -39,6 +39,7 @@ class SqueezeformerModel(torch.nn.Module):
             time_reduction_layer_type: str = 'stream'
             use_dynamic_chunk = True
             causal = True
+        #     归一化
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
