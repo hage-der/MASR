@@ -132,9 +132,13 @@ class SqueezeformerEncoder(nn.Module):
         self.preln = nn.LayerNorm(encoder_dim)
         self.encoders = torch.nn.ModuleList([SqueezeformerEncoderLayer(
             encoder_dim,
+            # M
             encoder_selfattn_layer(*encoder_selfattn_layer_args),
+            # F
             positionwise_layer(*positionwise_layer_args),
+            # C
             convolution_layer(*convolution_layer_args),
+            # F
             positionwise_layer(*positionwise_layer_args),
             normalize_before,
             dropout,
