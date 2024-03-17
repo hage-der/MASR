@@ -18,27 +18,27 @@ from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 class SqueezeformerEncoder(nn.Module):
     def __init__(
             self,
-            input_size: int,
-            encoder_dim: int = 256,
-            output_size: int = 256,
-            attention_heads: int = 4,
-            num_blocks: int = 12,
-            reduce_idx: Optional[Union[int, List[int]]] = 5,
-            recover_idx: Optional[Union[int, List[int]]] = 11,
-            feed_forward_expansion_factor: int = 8,
-            dw_stride: bool = False,
-            input_dropout_rate: float = 0.1,
-            pos_enc_layer_type: str = "rel_pos",
-            time_reduction_layer_type: str = "conv1d",
-            feed_forward_dropout_rate: float = 0.1,
-            attention_dropout_rate: float = 0.1,
-            cnn_module_kernel: int = 31,
-            cnn_norm_type: str = "batch_norm",
-            dropout: float = 0.1,
-            causal: bool = False,
-            adaptive_scale: bool = True,
-            activation_type: str = "swish",
-            init_weights: bool = True,
+            input_size: int,   # Transformer BaseEncoder
+            encoder_dim: int = 256,   # 编码器层的隐藏维度
+            output_size: int = 256,   # 最终投影图层的输出尺寸
+            attention_heads: int = 4, # 注意力模块中注意力头的数量
+            num_blocks: int = 12,     # 编码器层数
+            reduce_idx: Optional[Union[int, List[int]]] = 5,  # 将图层索引从每帧 40 毫秒降低到 80 毫秒
+            recover_idx: Optional[Union[int, List[int]]] = 11,# 恢复图层索引，从每帧 80 毫秒到 40 毫秒
+            feed_forward_expansion_factor: int = 8,           # 扩大 FFN 的系数
+            dw_stride: bool = False,                   # 是否对子采样模块进行深度卷积
+            input_dropout_rate: float = 0.1,           # 输入投影图层的丢失率,防止过拟合
+            pos_enc_layer_type: str = "rel_pos",       # 自注意力模块，rel_pos表示使用squeezeformer的注意力模块
+            time_reduction_layer_type: str = "conv1d", # Conv1d 或 Conv2d 还原层
+            feed_forward_dropout_rate: float = 0.1,    # 前反馈的丢失率,防止过拟合
+            attention_dropout_rate: float = 0.1,       # 自注意力的丢失率,防止过拟合
+            cnn_module_kernel: int = 31,               # CNN 模块的内核大小
+            cnn_norm_type: str = "batch_norm",         # 归一化或标准化
+            dropout: float = 0.1,                      # 随机暂时丢失一些神经元
+            causal: bool = False,                      # 是否使用因果卷积
+            adaptive_scale: bool = True,               # 是否使用自适应比例
+            activation_type: str = "swish",            # 编码器激活函数类型
+            init_weights: bool = True,                 # 是否初始化权重
             global_cmvn: torch.nn.Module = None,
             normalize_before: bool = False,
             use_dynamic_chunk: bool = False,
@@ -132,6 +132,8 @@ class SqueezeformerEncoder(nn.Module):
         self.preln = nn.LayerNorm(encoder_dim)
         self.encoders = torch.nn.ModuleList([SqueezeformerEncoderLayer(
             encoder_dim,
+            # 模型修改，增加F
+            # positionwise_layer(*positionwise_layer_args),
             # M
             encoder_selfattn_layer(*encoder_selfattn_layer_args),
             # F
@@ -386,13 +388,13 @@ class SqueezeformerEncoderLayer(nn.Module):
 
     def __init__(
             self,
-            size: int,
-            self_attn: torch.nn.Module,
-            feed_forward1: Optional[nn.Module] = None,
-            conv_module: Optional[nn.Module] = None,
-            feed_forward2: Optional[nn.Module] = None,
-            normalize_before: bool = False,
-            dropout_rate: float = 0.1,
+            size: int,                                 # 输入维度
+            self_attn: torch.nn.Module,                # 自注意力模块实例。“MultiHeadedAttention”或“RelPositionMultiHeadedAttention”实例可用作参数
+            feed_forward1: Optional[nn.Module] = None, # 前馈模块实例。“PositionwiseFeedForward”实例可以用作参数
+            conv_module: Optional[nn.Module] = None,   # 卷积模块实例。“ConvlutionModule”实例可以用作参数
+            feed_forward2: Optional[nn.Module] = None, # 前馈模块实例。“PositionwiseFeedForward”实例可以用作参数
+            normalize_before: bool = False,            # True：在每个子块之前使用 layer_norm。False：在每个子块后使用 layer_norm
+            dropout_rate: float = 0.1,                 # dropout率,辍学率
             concat_after: bool = False,
     ):
         super(SqueezeformerEncoderLayer, self).__init__()
