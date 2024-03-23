@@ -132,8 +132,6 @@ class SqueezeformerEncoder(nn.Module):
         self.preln = nn.LayerNorm(encoder_dim)
         self.encoders = torch.nn.ModuleList([SqueezeformerEncoderLayer(
             encoder_dim,
-            # 模型修改，增加F
-            # positionwise_layer(*positionwise_layer_args),
             # M
             encoder_selfattn_layer(*encoder_selfattn_layer_args),
             # F
@@ -141,6 +139,8 @@ class SqueezeformerEncoder(nn.Module):
             # C
             convolution_layer(*convolution_layer_args),
             # F
+            positionwise_layer(*positionwise_layer_args),
+            # 模型修改，增加F
             positionwise_layer(*positionwise_layer_args),
             normalize_before,
             dropout,
@@ -393,6 +393,7 @@ class SqueezeformerEncoderLayer(nn.Module):
             feed_forward1: Optional[nn.Module] = None, # 前馈模块实例。“PositionwiseFeedForward”实例可以用作参数
             conv_module: Optional[nn.Module] = None,   # 卷积模块实例。“ConvlutionModule”实例可以用作参数
             feed_forward2: Optional[nn.Module] = None, # 前馈模块实例。“PositionwiseFeedForward”实例可以用作参数
+            feed_forward3: Optional[nn.Module] = None,  # 增加一层F
             normalize_before: bool = False,            # True：在每个子块之前使用 layer_norm。False：在每个子块后使用 layer_norm
             dropout_rate: float = 0.1,                 # dropout率,辍学率
             concat_after: bool = False,
@@ -407,6 +408,8 @@ class SqueezeformerEncoderLayer(nn.Module):
         self.layer_norm3 = nn.LayerNorm(size)
         self.ffn2 = feed_forward2
         self.layer_norm4 = nn.LayerNorm(size)
+        self.ffn3 = feed_forward3
+        self.layer_norm5 = nn.LayerNorm(size)
         self.normalize_before = normalize_before
         self.dropout = nn.Dropout(dropout_rate)
         self.concat_after = concat_after
@@ -465,5 +468,14 @@ class SqueezeformerEncoderLayer(nn.Module):
         x = residual + self.dropout(x)
         if not self.normalize_before:
             x = self.layer_norm4(x)
+
+        # 增加一层F
+        residual = x
+        if self.normalize_before:
+            x = self.layer_norm5(x)
+        x = self.ffn3(x)
+        x = residual + self.dropout(x)
+        if not self.normalize_before:
+            x = self.layer_norm5(x)
 
         return x, mask, new_att_cache, new_cnn_cache

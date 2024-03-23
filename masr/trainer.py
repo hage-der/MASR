@@ -504,7 +504,7 @@ class MASRTrainer(object):
         for epoch_id in range(last_epoch, self.configs.train_conf.max_epoch):
             epoch_id += 1
             start_epoch = time.time()
-            # 训练一个epoch
+            # 训练一个epoch，writer记录日志
             self.__train_epoch(epoch_id=epoch_id, save_model_path=save_model_path, writer=writer)
             # 多卡训练只使用一个进程执行评估和保存模型
             if self.local_rank == 0:

@@ -41,6 +41,7 @@ class SqueezeformerModel(torch.nn.Module):
             causal = True
         #     归一化
         feature_normalizer = FeatureNormalizer(mean_istd_filepath=mean_istd_path)
+        # cmvn：倒谱均值方差归一化
         global_cmvn = GlobalCMVN(torch.from_numpy(feature_normalizer.mean).float(),
                                  torch.from_numpy(feature_normalizer.istd).float())
         self.encoder = SqueezeformerEncoder(input_size=input_dim,
