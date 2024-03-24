@@ -399,15 +399,21 @@ class SqueezeformerEncoderLayer(nn.Module):
             concat_after: bool = False,
     ):
         super(SqueezeformerEncoderLayer, self).__init__()
+        # 改动
         self.size = size
-        self.self_attn = self_attn
-        self.layer_norm1 = nn.LayerNorm(size)
+        # F
         self.ffn1 = feed_forward1
         self.layer_norm2 = nn.LayerNorm(size)
-        self.conv_module = conv_module
-        self.layer_norm3 = nn.LayerNorm(size)
+        # M
+        self.self_attn = self_attn
+        self.layer_norm1 = nn.LayerNorm(size)
+        # F
         self.ffn2 = feed_forward2
         self.layer_norm4 = nn.LayerNorm(size)
+        # C
+        self.conv_module = conv_module
+        self.layer_norm3 = nn.LayerNorm(size)
+        # F
         self.ffn3 = feed_forward3
         self.layer_norm5 = nn.LayerNorm(size)
         self.normalize_before = normalize_before
@@ -427,6 +433,16 @@ class SqueezeformerEncoderLayer(nn.Module):
             att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
             cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        # 改动
+        # ffn module
+        residual = x
+        if self.normalize_before:
+            x = self.layer_norm2(x)
+        x = self.ffn1(x)
+        x = residual + self.dropout(x)
+        if not self.normalize_before:
+            x = self.layer_norm2(x)
+
         # self attention module
         residual = x
         if self.normalize_before:
@@ -440,24 +456,6 @@ class SqueezeformerEncoderLayer(nn.Module):
         if not self.normalize_before:
             x = self.layer_norm1(x)
 
-        # ffn module
-        residual = x
-        if self.normalize_before:
-            x = self.layer_norm2(x)
-        x = self.ffn1(x)
-        x = residual + self.dropout(x)
-        if not self.normalize_before:
-            x = self.layer_norm2(x)
-
-        # conv module
-        new_cnn_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
-        residual = x
-        if self.normalize_before:
-            x = self.layer_norm3(x)
-        x, new_cnn_cache = self.conv_module(x, mask_pad, cnn_cache)
-        x = residual + self.dropout(x)
-        if not self.normalize_before:
-            x = self.layer_norm3(x)
 
         # ffn module
         residual = x
@@ -468,6 +466,16 @@ class SqueezeformerEncoderLayer(nn.Module):
         x = residual + self.dropout(x)
         if not self.normalize_before:
             x = self.layer_norm4(x)
+
+        # conv module
+        new_cnn_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
+        residual = x
+        if self.normalize_before:
+            x = self.layer_norm3(x)
+        x, new_cnn_cache = self.conv_module(x, mask_pad, cnn_cache)
+        x = residual + self.dropout(x)
+        if not self.normalize_before:
+            x = self.layer_norm3(x)
 
         # 增加一层F
         residual = x
