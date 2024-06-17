@@ -18,7 +18,8 @@ class PositionwiseFeedForward(torch.nn.Module):
                  idim: int,
                  hidden_units: int,
                  dropout_rate: float,
-                 activation: torch.nn.Module = torch.nn.ReLU(),
+                 # activation: torch.nn.Module = torch.nn.ReLU(),修改为HardSwish,提高性能
+                 activation: torch.nn.Module = torch.nn.Hardswish,
                  adaptive_scale: bool = False,
                  init_weights: bool = False
                  ):
