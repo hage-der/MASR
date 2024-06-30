@@ -9,15 +9,15 @@ class Conv2dValid(_ConvNd):
 
     def __init__(
             self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: _size_2_t,
-            stride: _size_2_t = 1,
-            padding: Union[str, _size_2_t] = 0,
-            dilation: _size_2_t = 1,
-            groups: int = 1,
-            bias: bool = True,
-            padding_mode: str = 'zeros',
+            in_channels: int,   # 输入图像通道数
+            out_channels: int,  # 卷积产生的通道数
+            kernel_size: _size_2_t,  # 卷积核尺寸，可以设为1个int型数或者一个(int, int)型的元组。例如(2,3)是高2宽3卷积核
+            stride: _size_2_t = 1,   # 卷积步长，默认为1。可以设为1个int型数或者一个(int, int)型的元组。
+            padding: Union[str, _size_2_t] = 0,  # 填充操作，控制padding_mode的数目。简言之，就是决定图像边沿填充的方式
+            dilation: _size_2_t = 1,             # 扩张操作：控制kernel点（卷积核点）的间距，默认值:1
+            groups: int = 1,                     # group参数的作用是控制分组卷积，默认不分组，为1组。输入图像通道数
+            bias: bool = True,                   # 为真，则在输出中添加一个可学习的偏差。默认：True
+            padding_mode: str = 'zeros',  # padding模式，默认为Zero-padding
             device=None,
             dtype=None,
             valid_trigx: bool = False,

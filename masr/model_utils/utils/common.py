@@ -144,6 +144,7 @@ def get_activation(act):
 
     """Return activation function."""
     activation_funcs = {
+        "hardswish": torch.nn.Hardswish,
         "hardtanh": torch.nn.Hardtanh,
         "tanh": torch.nn.Tanh,
         "relu": torch.nn.ReLU,

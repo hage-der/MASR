@@ -7,9 +7,10 @@ from masr.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,   'configs/conformer.yml',     "配置文件")
+add_arg('configs',          str,   'configs/squeezeformer.yml',     "配置文件")
 add_arg("use_gpu",          bool,  True,                        "是否使用GPU评估模型")
-add_arg('resume_model',     str,   'models/conformer_streaming_fbank/best_model/',  "模型的路径")
+# E:\PycharmCode\MASR\models\squeezeformer_streaming_fbank\best_model
+add_arg('resume_model',     str,   'models/squeezeformer_streaming_fbank/best_model/',  "模型的路径")
 args = parser.parse_args()
 print_arguments(args=args)
 

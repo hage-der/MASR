@@ -130,11 +130,7 @@ class EfficientConformerEncoder(torch.nn.Module):
 
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
-        positionwise_layer_args = (output_size,
-                                   linear_units,
-                                   dropout_rate,
-                                   activation,
-                                   )
+        positionwise_layer_args = (output_size, linear_units, dropout_rate, activation)
         # convolution module definition
         convolution_layer = ConvolutionModule
 

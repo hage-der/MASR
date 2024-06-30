@@ -37,14 +37,17 @@ class SqueezeformerEncoder(nn.Module):
             dropout: float = 0.1,                      # 随机暂时丢失一些神经元
             causal: bool = False,                      # 是否使用因果卷积
             adaptive_scale: bool = True,               # 是否使用自适应比例
-            activation_type: str = "swish",            # 编码器激活函数类型
+            activation_type: str = "swish",            # 编码器激活函数类型      "hardswish": torch.nn.Hardswish,
+                                                       # "hardtanh": torch.nn.Hardtanh,  "tanh": torch.nn.Tanh,
+                                                       # "relu": torch.nn.ReLU,          "gelu": torch.nn.GELU
+                                                       # "selu": torch.nn.SELU,          "swish": getattr(torch.nn, "SiLU", Swish),
             init_weights: bool = True,                 # 是否初始化权重
-            global_cmvn: torch.nn.Module = None,
-            normalize_before: bool = False,
-            use_dynamic_chunk: bool = False,
-            concat_after: bool = False,
-            static_chunk_size: int = 0,
-            use_dynamic_left_chunk: bool = False
+            global_cmvn: torch.nn.Module = None,       # 可选的 GlobalCMVN 模块
+            normalize_before: bool = False,            # True：在每个子块之前使用layer_norm,False：在每个子块之后使用layer_norm
+            use_dynamic_chunk: bool = False,           # 是否使用动态块大小进行训练，只能使用固定块（chunk_size > 0）或动态块大小（use_dynamic_chunk = True）
+            concat_after: bool = False,                # 是否连接注意力层的输入和输出。真：x -> x + 线性(concat(x, att(x))) 假：x -> x + att(x), 残差
+            static_chunk_size: int = 0,                # 用于静态块训练和解码的块大小
+            use_dynamic_left_chunk: bool = False       # 动态块训练中是否使用动态左块
     ):
         """Construct SqueezeformerEncoder
 

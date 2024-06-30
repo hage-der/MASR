@@ -6,7 +6,9 @@ from typeguard import check_argument_types
 
 
 class ConvolutionModule(nn.Module):
-    """ConvolutionModule in Conformer model."""
+    """ConvolutionModule in Conformer model.
+       Conformer 模型中的 ConvolutionModule
+    """
 
     def __init__(self,
                  channels: int,
