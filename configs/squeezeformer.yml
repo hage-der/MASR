@@ -13,7 +13,7 @@ encoder_conf:
   adaptive_scale: true
   cnn_module_kernel: 31
   normalize_before: false
-  activation_type: 'swish'
+  activation_type: 'hardswish'
   pos_enc_layer_type: 'rel_pos'
 
 # 解码器参数

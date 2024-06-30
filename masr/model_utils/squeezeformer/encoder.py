@@ -37,7 +37,7 @@ class SqueezeformerEncoder(nn.Module):
             dropout: float = 0.1,                      # 随机暂时丢失一些神经元
             causal: bool = False,                      # 是否使用因果卷积
             adaptive_scale: bool = True,               # 是否使用自适应比例
-            activation_type: str = "swish",            # 编码器激活函数类型      "hardswish": torch.nn.Hardswish,
+            activation_type: str = "hardswish",        # 编码器激活函数类型      "hardswish": torch.nn.Hardswish,
                                                        # "hardtanh": torch.nn.Hardtanh,  "tanh": torch.nn.Tanh,
                                                        # "relu": torch.nn.ReLU,          "gelu": torch.nn.GELU
                                                        # "selu": torch.nn.SELU,          "swish": getattr(torch.nn, "SiLU", Swish),
