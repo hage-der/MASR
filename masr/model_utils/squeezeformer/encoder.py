@@ -29,7 +29,7 @@ class SqueezeformerEncoder(nn.Module):
             feed_forward_expansion_factor: int = 8,           # 扩大 FFN 的系数
             dw_stride: bool = False,                   # 是否对子采样模块进行深度卷积
             input_dropout_rate: float = 0.1,           # 输入投影图层的丢失率,防止过拟合
-            pos_enc_layer_type: str = "rel_pos",       # 自注意力模块，rel_pos表示使用squeezeformer的注意力模块
+            pos_enc_layer_type: str = "group_rel_pos",       # 自注意力模块，rel_pos表示使用squeezeformer的注意力模块
             time_reduction_layer_type: str = "conv1d", # Conv1d 或 Conv2d 还原层
             feed_forward_dropout_rate: float = 0.1,    # 前反馈的丢失率,防止过拟合
             attention_dropout_rate: float = 0.1,       # 自注意力的丢失率,防止过拟合
