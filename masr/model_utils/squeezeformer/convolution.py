@@ -98,6 +98,7 @@ class ConvolutionModule(nn.Module):
             cache: torch.Tensor = torch.zeros((0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute convolution module.
+        计算卷积模块
         Args:
             x (torch.Tensor): Input tensor (#batch, time, channels).
             mask_pad (torch.Tensor): used for batch padding (#batch, 1, time),

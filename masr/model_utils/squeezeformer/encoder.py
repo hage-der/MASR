@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from masr.model_utils.conformer.attention import MultiHeadedAttention
 from masr.model_utils.conformer.embedding import RelPositionalEncoding
+from masr.model_utils.efficient_conformer.attention import GroupedRelPositionMultiHeadedAttention
 from masr.model_utils.squeezeformer.attention import RelPositionMultiHeadedAttention
 from masr.model_utils.squeezeformer.convolution import ConvolutionModule
 from masr.model_utils.squeezeformer.positionwise import PositionwiseFeedForward
@@ -47,7 +48,8 @@ class SqueezeformerEncoder(nn.Module):
             use_dynamic_chunk: bool = False,           # 是否使用动态块大小进行训练，只能使用固定块（chunk_size > 0）或动态块大小（use_dynamic_chunk = True）
             concat_after: bool = False,                # 是否连接注意力层的输入和输出。真：x -> x + 线性(concat(x, att(x))) 假：x -> x + att(x), 残差
             static_chunk_size: int = 0,                # 用于静态块训练和解码的块大小
-            use_dynamic_left_chunk: bool = False       # 动态块训练中是否使用动态左块
+            use_dynamic_left_chunk: bool = False,       # 动态块训练中是否使用动态左块
+            group_size = 3
     ):
         """Construct SqueezeformerEncoder
 
@@ -98,18 +100,27 @@ class SqueezeformerEncoder(nn.Module):
         activation = get_activation(activation_type)
 
         # self-attention module definition
-        if pos_enc_layer_type != "rel_pos":
-            encoder_selfattn_layer = MultiHeadedAttention
-            encoder_selfattn_layer_args = (attention_heads,
-                                           output_size,
-                                           attention_dropout_rate)
-        else:
+        if pos_enc_layer_type == "rel_pos":
+            # (self, n_head, n_feat, dropout_rate, adaptive_scale=False, init_weights=False)
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
             encoder_selfattn_layer_args = (attention_heads,
                                            encoder_dim,
                                            attention_dropout_rate,
                                            adaptive_scale,
                                            init_weights)
+        elif pos_enc_layer_type == "group_rel_pos":
+            # (self, n_head, n_feat, dropout_rate, group_size=3)
+            encoder_selfattn_layer = GroupedRelPositionMultiHeadedAttention
+            encoder_selfattn_layer_args = (attention_heads,
+                                           output_size,
+                                           attention_dropout_rate,
+                                           group_size)
+        else:
+            # (self, n_head: int, n_feat: int, dropout_rate: float)
+            encoder_selfattn_layer = MultiHeadedAttention
+            encoder_selfattn_layer_args = (attention_heads,
+                                           output_size,
+                                           attention_dropout_rate)
 
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
