@@ -11,11 +11,11 @@ class ConvolutionModule(nn.Module):
     """
 
     def __init__(self,
-                 channels: int,
-                 kernel_size: int = 15,
+                 channels: int,                        # 卷积层的通道数
+                 kernel_size: int = 15,                # 卷积层的内核大小
                  activation: nn.Module = nn.ReLU(),
                  norm: str = "batch_norm",
-                 causal: bool = False,
+                 causal: bool = False,                 # 是否使用因果卷积
                  bias: bool = True,
                  adaptive_scale: bool = False,
                  init_weights: bool = False):
@@ -44,11 +44,13 @@ class ConvolutionModule(nn.Module):
         # if self.lorder > 0: it's a causal convolution, the input will be
         #    padded with self.lorder frames on the left in forward.
         # else: it's a symmetrical convolution
+        # self.lorder 用于区分是否是因果卷积，如果 self.lorder > 0：是因果卷积，输入将在前向左侧填充 self.lorder 帧。 else: 这是一个对称卷积
         if causal:
             padding = 0
             self.lorder = kernel_size - 1
         else:
             # kernel_size should be an odd number for none causal convolution
+            # 对于非因果卷积，kernel_size 应该是奇数
             assert (kernel_size - 1) % 2 == 0
             padding = (kernel_size - 1) // 2
             self.lorder = 0
@@ -112,8 +114,10 @@ class ConvolutionModule(nn.Module):
         if self.adaptive_scale:
             x = self.ada_scale * x + self.ada_bias
         # exchange the temporal dimension and the feature dimension
+        # 交换时间维度和特征维度
         x = x.transpose(1, 2)  # (#batch, channels, time)
         # mask batch padding
+        # 掩码批量填充
         if mask_pad.size(2) > 0:  # time > 0
             x.masked_fill_(~mask_pad, 0.0)
 
@@ -132,15 +136,23 @@ class ConvolutionModule(nn.Module):
             # None.
             new_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
 
-        # GLU mechanism
+        # Pointwise Conv
         x = self.pointwise_conv1(x)  # (batch, 2*channel, dim)
+        # GLU mechanism
         x = nn.functional.glu(x, dim=1)  # (batch, channel, dim)
 
         # 1D Depthwise Conv
-        x = self.depthwise_conv(x)
+        # 使用两个卷积一同训练，并将结果相加
+        temp = x
+        x1 = self.depthwise_conv(temp)
+        x2 = self.depthwise_conv(temp)
+        x = x1 + x2
+        # BatchNorm
         if self.use_layer_norm:
             x = x.transpose(1, 2)
+        #     激活函数
         x = self.activation(self.norm(x))
+
         if self.use_layer_norm:
             x = x.transpose(1, 2)
         x = self.pointwise_conv2(x)

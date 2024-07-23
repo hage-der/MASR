@@ -47,6 +47,8 @@ class SqueezeformerEncoder(nn.Module):
             normalize_before: bool = False,            # True：在每个子块之前使用layer_norm,False：在每个子块之后使用layer_norm
             use_dynamic_chunk: bool = False,           # 是否使用动态块大小进行训练，只能使用固定块（chunk_size > 0）或动态块大小（use_dynamic_chunk = True）
             concat_after: bool = False,                # 是否连接注意力层的输入和输出。真：x -> x + 线性(concat(x, att(x))) 假：x -> x + att(x), 残差
+                                                       # True: x -> x + linear(concat(x, att(x)))
+                                                       # False: x -> x + att(x)
             static_chunk_size: int = 0,                # 用于静态块训练和解码的块大小
             use_dynamic_left_chunk: bool = False,       # 动态块训练中是否使用动态左块
             group_size = 3
@@ -410,7 +412,7 @@ class SqueezeformerEncoderLayer(nn.Module):
             feed_forward3: Optional[nn.Module] = None,  # 增加一层F
             normalize_before: bool = False,            # True：在每个子块之前使用 layer_norm。False：在每个子块后使用 layer_norm
             dropout_rate: float = 0.1,                 # dropout率,辍学率
-            concat_after: bool = False,
+            concat_after: bool = False,                # 是否连接注意力层的输入和输出。真：x -> x + 线性(concat(x, att(x))) 假：x -> x + att(x), 残差
     ):
         super(SqueezeformerEncoderLayer, self).__init__()
         # 改动
@@ -436,6 +438,7 @@ class SqueezeformerEncoderLayer(nn.Module):
         if concat_after:
             self.concat_linear = nn.Linear(size + size, size)
         else:
+            # 恒等映射，简单的把输入变成输出
             self.concat_linear = nn.Identity()
 
     def forward(
