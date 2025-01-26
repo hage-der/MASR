@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -17,6 +17,7 @@ from masr.model_utils.conformer.subsampling import Conv2dSubsampling8
 from masr.model_utils.conformer.subsampling import LinearNoSubsampling
 from masr.model_utils.utils.common import get_activation
 from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
+from masr.model_utils.conformer.multiconv_cgmlp  import MultiConvolutionalGatingMLP
 
 
 class ConformerEncoderLayer(nn.Module):
@@ -190,7 +191,14 @@ class ConformerEncoder(nn.Module):
             cnn_module_kernel: int = 15,
             causal: bool = False,
             cnn_module_norm: str = "layer_norm",
-            max_len: int = 5000
+            max_len: int = 5000,
+            cgmlp_linear_units: int = 2048,
+            multicgmlp_type: str = "concat_fusion",
+            multicgmlp_kernel_sizes: Union[int, str] = "7,15,23,31",
+            multicgmlp_merge_conv_kernel: int = 31,
+            multicgmlp_use_non_linear: int = True,
+            use_linear_after_conv: bool = False,
+            gate_activation: str = "identity",
     ):
         """Construct ConformerEncoder
 
@@ -284,8 +292,23 @@ class ConformerEncoder(nn.Module):
         positionwise_layer = PositionwiseFeedForward
         positionwise_layer_args = (output_size, linear_units, dropout_rate, activation)
         # convolution module definition
-        convolution_layer = ConvolutionModule
-        convolution_layer_args = (output_size, cnn_module_kernel, activation, cnn_module_norm, causal)
+        # 原cnn
+        # convolution_layer = ConvolutionModule
+        # convolution_layer_args = (output_size, cnn_module_kernel, activation, cnn_module_norm, causal)
+        # 改进cnn
+        convolution_layer = MultiConvolutionalGatingMLP
+        convolution_layer_args = (
+            output_size,
+            cgmlp_linear_units,
+            multicgmlp_type,
+            multicgmlp_kernel_sizes,
+            multicgmlp_merge_conv_kernel,
+            multicgmlp_use_non_linear,
+            dropout_rate,
+            use_linear_after_conv,
+            activation,
+            gate_activation,
+        )
 
         self.encoders = nn.ModuleList([
             ConformerEncoderLayer(
