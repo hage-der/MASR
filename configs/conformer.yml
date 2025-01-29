@@ -12,7 +12,7 @@ encoder_conf:
   cnn_module_kernel: 15
   use_cnn_module: True
   activation_type: 'swish'
-  pos_enc_layer_type: 'rel_pos'
+  pos_enc_layer_type: 'multi_mha'
 
 # 解码器参数
 decoder_conf:

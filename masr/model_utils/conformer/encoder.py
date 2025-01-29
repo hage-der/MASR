@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Tuple, Union
 
 import torch
@@ -18,7 +19,8 @@ from masr.model_utils.conformer.subsampling import LinearNoSubsampling
 from masr.model_utils.utils.common import get_activation
 from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 from masr.model_utils.conformer.multiconv_cgmlp  import MultiConvolutionalGatingMLP
-
+from  masr.model_utils.conformer.multiattention import MultiscaleMultiHeadedAttention
+# from  masr.model_utils.conformer.multiattention1 import NewMultiscaleAttention
 
 class ConformerEncoderLayer(nn.Module):
     """Encoder layer module."""
@@ -199,6 +201,12 @@ class ConformerEncoder(nn.Module):
             multicgmlp_use_non_linear: int = True,
             use_linear_after_conv: bool = False,
             gate_activation: str = "identity",
+            # 新增的多尺度注意力参数
+            attention_scales="1,2,4",
+            attention_merge_method: str = 'concat',
+            attention_norm_type: str = 'layer_norm',
+            attention_pool_method: str = 'avg',
+            attention_scale_factor: float = 1.0,
     ):
         """Construct ConformerEncoder
 
@@ -250,6 +258,8 @@ class ConformerEncoder(nn.Module):
             pos_enc_class = RelPositionalEncoding
         elif pos_enc_layer_type == "no_pos":
             pos_enc_class = NoPositionalEncoding
+        elif pos_enc_layer_type == "multi_mha":
+            pos_enc_class = NoPositionalEncoding
         else:
             raise ValueError("unknown pos_enc_layer: " + pos_enc_layer_type)
 
@@ -283,11 +293,30 @@ class ConformerEncoder(nn.Module):
         activation = get_activation(activation_type)
 
         # self-attention module definition
-        if pos_enc_layer_type != "rel_pos":
-            encoder_selfattn_layer = MultiHeadedAttention
-        else:
+        if pos_enc_layer_type == "rel_pos":
+            logging.debug("进入mha")
             encoder_selfattn_layer = RelPositionMultiHeadedAttention
+        elif pos_enc_layer_type == "multi_mha":
+            logging.debug("进入multi_mha")
+            encoder_selfattn_layer = MultiscaleMultiHeadedAttention
+        else:
+            logging.debug("进入res_mha")
+            encoder_selfattn_layer = MultiHeadedAttention
+
+        # if pos_enc_layer_type == "multi_mha":
+        #     encoder_selfattn_layer_args = (
+        #         attention_heads,
+        #         output_size,
+        #         attention_dropout_rate,
+        #         attention_scales,
+        #         attention_merge_method,
+        #         attention_norm_type,
+        #         attention_pool_method,
+        #         attention_scale_factor
+        #     )
+        # else:
         encoder_selfattn_layer_args = (attention_heads, output_size, attention_dropout_rate)
+
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
         positionwise_layer_args = (output_size, linear_units, dropout_rate, activation)
