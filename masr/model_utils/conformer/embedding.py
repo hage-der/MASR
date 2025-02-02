@@ -108,6 +108,8 @@ class NoPositionalEncoding(nn.Module):
                  max_len: int = 5000,
                  reverse: bool = False):
         super().__init__()
+        self.d_model = d_model
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x: torch.Tensor, offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
         pos_emb = torch.zeros(1, x.size(1), self.d_model).to(x.device)

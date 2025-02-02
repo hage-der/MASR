@@ -50,13 +50,7 @@ class MASRDataset(Dataset):
             self.data_list = self.dataset_reader.get_keys()
 
     def __getitem__(self, idx):
-        # 获取数据列表
-        if self.manifest_type == 'txt':
-            data_list = self.data_list[idx]
-        elif self.manifest_type == 'binary':
-            data_list = self.dataset_reader.get_data(self.data_list[idx])
-        else:
-            raise Exception(f'没有该类型：{self.manifest_type}')
+        data_list = self.get_one_list(idx)
         if 'start_time' not in data_list.keys():
             # 分割音频路径和标签
             audio_file, transcript = data_list["audio_filepath"], data_list["text"]
@@ -81,6 +75,15 @@ class MASRDataset(Dataset):
     def __len__(self):
         return len(self.data_list)
 
+    def get_one_list(self,idx):
+        # 获取数据列表
+        if self.manifest_type == 'txt':
+            data_list = self.data_list[idx]
+        elif self.manifest_type == 'binary':
+            data_list = self.dataset_reader.get_data(self.data_list[idx])
+        else:
+            raise Exception(f'没有该类型：{self.manifest_type}')
+        return data_list
     @property
     def feature_dim(self):
         """返回音频特征大小
