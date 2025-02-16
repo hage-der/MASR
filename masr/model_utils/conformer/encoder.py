@@ -19,7 +19,9 @@ from masr.model_utils.conformer.subsampling import LinearNoSubsampling
 from masr.model_utils.utils.common import get_activation
 from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 from masr.model_utils.conformer.multiconv_cgmlp  import MultiConvolutionalGatingMLP
-from  masr.model_utils.conformer.multiattention import MultiscaleMultiHeadedAttention
+from masr.model_utils.conformer.multiattention import MultiscaleMultiHeadedAttention
+from masr.model_utils.conformer.hierarchicalmultiheadedattention import HierarchicalMultiHeadedAttention
+from masr.model_utils.conformer.selectivefeedback import SelectiveFeedback
 # from  masr.model_utils.conformer.multiattention1 import NewMultiscaleAttention
 
 class ConformerEncoderLayer(nn.Module):
@@ -63,6 +65,16 @@ class ConformerEncoderLayer(nn.Module):
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
         self.conv_module = conv_module
+
+        # 新增反馈模块
+        # self.feedback = SelectiveFeedback(
+        #     size=size,
+        #     pooling_factor=2,
+        #     temporal_window=5
+        # )
+        # # 新增反馈层的归一化
+        # self.norm_feedback = nn.LayerNorm(size, eps=1e-5)
+
         self.norm_ff = nn.LayerNorm(size, eps=1e-5)  # for the FNN module
         self.norm_mha = nn.LayerNorm(size, eps=1e-5)  # for the MHA module
         if feed_forward_macaron is not None:
@@ -125,7 +137,21 @@ class ConformerEncoderLayer(nn.Module):
         if self.normalize_before:
             x = self.norm_mha(x)
 
-        x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb, cache=att_cache)
+        # 对于层级注意力，我们需要传递额外的上下文信息
+        if isinstance(self.self_attn, HierarchicalMultiHeadedAttention):
+            x_att, new_att_cache = self.self_attn(
+                x, x, x,
+                mask,
+                pos_emb,
+                cache=att_cache
+            )
+        else:
+            x_att, new_att_cache = self.self_attn(
+                x, x, x,
+                mask,
+                pos_emb,
+                cache=att_cache
+            )
 
         if self.concat_after:
             x_concat = torch.concat((x, x_att), dim=-1)
@@ -135,6 +161,25 @@ class ConformerEncoderLayer(nn.Module):
 
         if not self.normalize_before:
             x = self.norm_mha(x)
+
+        # x_att, new_att_cache = self.self_attn(x, x, x, mask, pos_emb, cache=att_cache)
+        #
+        # if self.concat_after:
+        #     x_concat = torch.concat((x, x_att), dim=-1)
+        #     x = residual + self.concat_linear(x_concat)
+        # else:
+        #     x = residual + self.dropout(x_att)
+        #
+        # if not self.normalize_before:
+        #     x = self.norm_mha(x)
+
+        # [新增] Feedback处理
+        # residual = x
+        # if self.normalize_before:
+        #     x = self.norm_feedback(x)
+        # x = residual + self.dropout(self.feedback(x))
+        # if not self.normalize_before:
+        #     x = self.norm_feedback(x)
 
         # convolution module
         # Fake new cnn cache here, and then change it in conv_module
@@ -207,6 +252,12 @@ class ConformerEncoder(nn.Module):
             attention_norm_type: str = 'layer_norm',
             attention_pool_method: str = 'avg',
             attention_scale_factor: float = 1.0,
+
+            # 新增层级注意力的参数
+            hierarchical_attention: bool = False,
+            local_window_size: int = 32,
+            local_heads: Optional[int] = None,
+            fusion_type: str = "adaptive",  # 可选："fixed", "adaptive", "learned"
     ):
         """Construct ConformerEncoder
 
@@ -260,6 +311,8 @@ class ConformerEncoder(nn.Module):
             pos_enc_class = NoPositionalEncoding
         elif pos_enc_layer_type == "multi_mha":
             pos_enc_class = NoPositionalEncoding
+        elif pos_enc_layer_type == "hierarchical":
+            pos_enc_class = RelPositionalEncoding
         else:
             raise ValueError("unknown pos_enc_layer: " + pos_enc_layer_type)
 
@@ -299,6 +352,8 @@ class ConformerEncoder(nn.Module):
         elif pos_enc_layer_type == "multi_mha":
             logging.debug("进入multi_mha")
             encoder_selfattn_layer = MultiscaleMultiHeadedAttention
+        elif pos_enc_layer_type == "hierarchical":  # 新增
+            encoder_selfattn_layer = HierarchicalMultiHeadedAttention
         else:
             logging.debug("进入res_mha")
             encoder_selfattn_layer = MultiHeadedAttention
@@ -315,7 +370,23 @@ class ConformerEncoder(nn.Module):
         #         attention_scale_factor
         #     )
         # else:
-        encoder_selfattn_layer_args = (attention_heads, output_size, attention_dropout_rate)
+        # encoder_selfattn_layer_args = (attention_heads, output_size, attention_dropout_rate)
+
+        if pos_enc_layer_type == "hierarchical":
+            encoder_selfattn_layer_args = (
+                attention_heads,
+                output_size,
+                attention_dropout_rate,
+                local_window_size,
+                local_heads,
+                fusion_type
+            )
+        else:
+            encoder_selfattn_layer_args = (
+                attention_heads,
+                output_size,
+                attention_dropout_rate
+            )
 
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
@@ -442,6 +513,20 @@ class ConformerEncoder(nn.Module):
         elayers, cache_t1 = att_cache.size(0), att_cache.size(2)
         chunk_size = xs.size(1)
         attention_key_size = cache_t1 + chunk_size
+
+        if any(isinstance(layer.self_attn, HierarchicalMultiHeadedAttention)
+               for layer in self.encoders):
+            # 获取所有层级注意力层中最大的局部窗口大小
+            max_local_window = max(
+                layer.self_attn.local_window_size
+                for layer in self.encoders
+                if isinstance(layer.self_attn, HierarchicalMultiHeadedAttention)
+            )
+            # 确保缓存大小至少能够覆盖局部窗口
+            required_cache_size = max(required_cache_size, max_local_window)
+
+            # 可选：根据局部窗口大小调整注意力掩码
+            # att_mask = self._adjust_attention_mask(att_mask, max_local_window)
 
         # only used when using `RelPositionMultiHeadedAttention`
         pos_emb = self.embed.position_encoding(offset=offset - cache_t1, size=attention_key_size)
