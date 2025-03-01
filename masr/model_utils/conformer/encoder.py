@@ -21,7 +21,6 @@ from masr.model_utils.utils.mask import add_optional_chunk_mask, make_pad_mask
 from masr.model_utils.conformer.multiconv_cgmlp  import MultiConvolutionalGatingMLP
 from masr.model_utils.conformer.multiattention import MultiscaleMultiHeadedAttention
 from masr.model_utils.conformer.hierarchicalmultiheadedattention import HierarchicalMultiHeadedAttention
-from masr.model_utils.conformer.selectivefeedback import SelectiveFeedback
 # from  masr.model_utils.conformer.multiattention1 import NewMultiscaleAttention
 
 class ConformerEncoderLayer(nn.Module):
@@ -33,6 +32,7 @@ class ConformerEncoderLayer(nn.Module):
             self_attn: nn.Module,
             feed_forward: Optional[nn.Module] = None,
             feed_forward_macaron: Optional[nn.Module] = None,
+            feed_forward_post_attention: Optional[nn.Module] = None,
             conv_module: Optional[nn.Module] = None,
             dropout_rate: float = 0.1,
             normalize_before: bool = True,
@@ -64,6 +64,7 @@ class ConformerEncoderLayer(nn.Module):
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
+        self.feed_forward_post_attention = feed_forward_post_attention
         self.conv_module = conv_module
 
         # 新增反馈模块
@@ -77,6 +78,11 @@ class ConformerEncoderLayer(nn.Module):
 
         self.norm_ff = nn.LayerNorm(size, eps=1e-5)  # for the FNN module
         self.norm_mha = nn.LayerNorm(size, eps=1e-5)  # for the MHA module
+
+        # 【修改点3】为新增前馈层添加归一化
+        if feed_forward_post_attention is not None:
+            self.norm_ff_post_attention = nn.LayerNorm(size, eps=1e-5)
+
         if feed_forward_macaron is not None:
             self.norm_ff_macaron = nn.LayerNorm(size, eps=1e-5)
             self.ff_scale = 0.5
@@ -180,6 +186,13 @@ class ConformerEncoderLayer(nn.Module):
         # x = residual + self.dropout(self.feedback(x))
         # if not self.normalize_before:
         #     x = self.norm_feedback(x)
+        if self.feed_forward_post_attention is not None:
+            residual = x
+            if self.normalize_before:
+                x = self.norm_ff_post_attention(x)
+            x = residual + self.dropout(self.feed_forward_post_attention(x))
+            if not self.normalize_before:
+                x = self.norm_ff_post_attention(x)
 
         # convolution module
         # Fake new cnn cache here, and then change it in conv_module
@@ -258,6 +271,12 @@ class ConformerEncoder(nn.Module):
             local_window_size: int = 32,
             local_heads: Optional[int] = None,
             fusion_type: str = "adaptive",  # 可选："fixed", "adaptive", "learned"
+
+            # 新增前馈
+            use_elderly_voice_ff: bool = False,
+            elderly_frequency_enhancement: bool = True,
+            elderly_temporal_adaptation: bool = True,
+            elderly_articulation_boost: float = 0.15,
     ):
         """Construct ConformerEncoder
 
@@ -391,6 +410,25 @@ class ConformerEncoder(nn.Module):
         # feed-forward module definition
         positionwise_layer = PositionwiseFeedForward
         positionwise_layer_args = (output_size, linear_units, dropout_rate, activation)
+
+        # 是否使用优化前馈
+        if use_elderly_voice_ff:
+            # 导入老人语音前馈层
+            from masr.model_utils.conformer.positionwise import ElderlyVoiceAdaptiveFeedForward
+            elderly_ff_layer = ElderlyVoiceAdaptiveFeedForward
+            elderly_ff_layer_args = (
+                output_size,
+                linear_units,
+                dropout_rate,
+                activation,
+                elderly_frequency_enhancement,
+                elderly_temporal_adaptation,
+                elderly_articulation_boost
+            )
+        else:
+            elderly_ff_layer = None
+            elderly_ff_layer_args = None
+
         # convolution module definition
         # 原cnn
         # convolution_layer = ConvolutionModule
@@ -416,6 +454,7 @@ class ConformerEncoder(nn.Module):
                 self_attn=encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 feed_forward=positionwise_layer(*positionwise_layer_args),
                 feed_forward_macaron=positionwise_layer(*positionwise_layer_args) if macaron_style else None,
+                feed_forward_post_attention=elderly_ff_layer(*elderly_ff_layer_args) if elderly_ff_layer is not None else None,
                 conv_module=convolution_layer(*convolution_layer_args) if use_cnn_module else None,
                 dropout_rate=dropout_rate,
                 normalize_before=normalize_before,

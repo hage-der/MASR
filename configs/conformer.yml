@@ -13,6 +13,10 @@ encoder_conf:
   use_cnn_module: True
   activation_type: 'swish'
   pos_enc_layer_type: 'hierarchical'
+  use_elderly_voice_ff: true
+  elderly_frequency_enhancement: true
+  elderly_temporal_adaptation: true
+  elderly_articulation_boost: 0.15
 
 # 解码器参数
 decoder_conf:
