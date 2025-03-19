@@ -5,7 +5,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from masr.model_utils.conformer.attention import MultiHeadedAttention
+from masr.model_utils.conformer1.attention import MultiHeadedAttention
 
 
 class GroupedRelPositionMultiHeadedAttention(MultiHeadedAttention):

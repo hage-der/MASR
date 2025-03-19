@@ -5,11 +5,11 @@ import torch.nn.functional as F
 from torch import nn
 from typeguard import check_argument_types
 
-from masr.model_utils.conformer.attention import MultiHeadedAttention, RelPositionMultiHeadedAttention
-from masr.model_utils.conformer.embedding import PositionalEncoding, RelPositionalEncoding, NoPositionalEncoding
-from masr.model_utils.conformer.encoder import ConformerEncoderLayer
-from masr.model_utils.conformer.positionwise import PositionwiseFeedForward
-from masr.model_utils.conformer.subsampling import LinearNoSubsampling, Conv2dSubsampling4, Conv2dSubsampling6, \
+from masr.model_utils.conformer1.attention import MultiHeadedAttention, RelPositionMultiHeadedAttention
+from masr.model_utils.conformer1.embedding import PositionalEncoding, RelPositionalEncoding, NoPositionalEncoding
+from masr.model_utils.conformer1.encoder import ConformerEncoderLayer
+from masr.model_utils.conformer1.positionwise import PositionwiseFeedForward
+from masr.model_utils.conformer1.subsampling import LinearNoSubsampling, Conv2dSubsampling4, Conv2dSubsampling6, \
     Conv2dSubsampling8
 from masr.model_utils.efficient_conformer.attention import GroupedRelPositionMultiHeadedAttention
 from masr.model_utils.efficient_conformer.convolution import ConvolutionModule

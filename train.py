@@ -7,7 +7,7 @@ from masr.utils.utils import add_arguments, print_arguments
 # ssh -p 33280 root@connect.bjb1.seetacloud.com
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('configs',          str,    'configs/conformer.yml',       '配置文件')
+add_arg('configs',          str,    'configs/efficient_conformer.yml',       '配置文件')
 add_arg("local_rank",       int,    0,                             '多卡训练的本地GPU')
 add_arg("use_gpu",          bool,   True,                          '是否使用GPU训练')
 add_arg('augment_conf_path',str,    'configs/augmentation.json',   '数据增强的配置文件，为json格式')
