@@ -1,14 +1,11 @@
-# Author : ZY 
-# Time : 2025/3/22 21:13 
-# 内容 :
 import argparse
 import functools
 import time
 import wave
 import os
 import numpy as np
-import librosa
 from tqdm import tqdm
+import subprocess
 
 from masr.predict import MASRPredictor
 from masr.utils.utils import add_arguments, print_arguments
@@ -27,6 +24,7 @@ add_arg('pun_model_dir', str, 'models/pun_models/', "加标点符号的模型文件夹路径"
 add_arg('batch_rtf', bool, False, "是否对整个数据集计算RTF")
 add_arg('dataset_path', str, 'dataset/test/', "测试数据集路径，用于批量计算RTF")
 add_arg('warmup_runs', int, 5, "预热运行次数")
+add_arg('ffmpeg_path', str, 'ffmpeg', "ffmpeg可执行文件路径")
 args = parser.parse_args()
 print_arguments(args=args)
 
@@ -38,23 +36,58 @@ predictor = MASRPredictor(configs=args.configs,
                           pun_model_dir=args.pun_model_dir)
 
 
-# 获取音频时长(秒)
+# 获取音频时长(秒)，不使用librosa
 def get_audio_duration(audio_path):
-    """获取音频文件时长"""
-    try:
-        with wave.open(audio_path, 'rb') as wf:
-            frames = wf.getnframes()
-            rate = wf.getframerate()
-            duration = frames / float(rate)
-            return duration
-    except:
-        # 如果不是WAV文件，尝试使用librosa
+    """获取音频文件时长，不依赖librosa"""
+    # 检查文件是否存在
+    if not os.path.exists(audio_path):
+        print(f"文件不存在: {audio_path}")
+        return 0
+
+    # 文件扩展名
+    ext = os.path.splitext(audio_path)[1].lower()
+
+    # 对于WAV文件，使用wave模块
+    if ext == '.wav':
         try:
-            duration = librosa.get_duration(filename=audio_path)
+            with wave.open(audio_path, 'rb') as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                duration = frames / float(rate)
+                return duration
+        except Exception as e:
+            print(f"读取WAV文件时出错: {e}")
+            return 0
+
+    # 对于其他格式，使用ffmpeg
+    else:
+        try:
+            # 使用ffprobe获取音频时长
+            cmd = [
+                args.ffmpeg_path, '-i', audio_path,
+                '-show_entries', 'format=duration',
+                '-v', 'quiet',
+                '-of', 'csv=p=0'
+            ]
+
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            duration = float(result.stdout.strip())
             return duration
         except Exception as e:
-            print(f"无法获取音频时长: {e}")
-            return 0
+            print(f"使用ffmpeg获取音频时长时出错: {e}")
+            print("确保已安装ffmpeg并设置了正确的路径")
+
+            # 备用方案：假设采样率和估计文件大小
+            print("尝试使用文件大小估算时长（可能不准确）...")
+            try:
+                file_size = os.path.getsize(audio_path)
+                # 假设为16kHz, 16bit单声道音频 (2字节/样本)
+                estimated_duration = file_size / (16000 * 2)
+                print(f"估算时长: {estimated_duration:.3f} 秒 (基于16kHz 16bit单声道假设)")
+                return estimated_duration
+            except:
+                print("无法估算音频时长")
+                return 0
 
 
 # 短语音识别
